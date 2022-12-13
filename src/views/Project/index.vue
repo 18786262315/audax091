@@ -33,7 +33,6 @@
     </div>
 
     <div class="bottom_btn_div">
-      <!-- 旋转按钮 -->
       <div class="round_btn_div btn_cursor " @click="startrotating()">
         <svg
           t="1598104788972"
@@ -80,11 +79,17 @@
         </span>
       </div>
     </div>
-
+    <div class="absolute-bottom-text">
+      <p>Visual Representations are Artist's Impression only.</p>
+    </div>
     <div class="pro_page_models_div">
       <div
         align="justify"
         class="img3dmodels"
+        @touchstart="phonetouchstart"
+        @touchmove="phonetouchmove"
+        @touchend="phonetouchend"
+        @mousedown="move"
       >
         <ul style="padding-inline-start: 0px; pointer-events: none;">
           <li
@@ -123,6 +128,8 @@
 
 <script>
 import { log } from "util";
+import TWEEN from "tween.js/src/Tween.js"; 
+
 export default {
   data() {
     return {
@@ -133,17 +140,22 @@ export default {
       loadingindex: 0,
       unit_type_list: this.Datas.unit_type_list,
       imglist: [],
-      imgeurl: require("@/assets/model/091-Neu atNovena_00000.png"),
+      // imgeurl: require("@/assets/model/091-Neu atNovena_00000.png"),
       markindex: 0,
       n: 0,
       fangm: 1,
       rotatingtype: false,
       interval: null,
       animation_list: [],
+      animation_type:false
     };
   },
 
   methods: {
+    animate() {
+      window.requestAnimationFrame(() => this.animate());
+      TWEEN.update();
+    },
     winsize(){
          let model = document.getElementsByClassName("img3dmodels")[0];
           var width= window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth
@@ -164,25 +176,34 @@ export default {
       return str;
     },
 
-    cutscene(start, end) {
+    cutscene(start, end,parameter) {
       // 转场动画
-      // start, end 开始结束位置
-      this.n = start;
-      let type = end > start ? true : false;
+      console.log("转场动画 ===>>",start, end,parameter,Math.abs((start-end)*75))
+      this.animation_list = []
+      this.animation_type = false
+      if (start == end) {
+        this.animation_type = true
+        console.log(start, end,parameter);
+        this.animation_list = parameter
+        return
+      }
+      let self = this;
+      var tween = new TWEEN.Tween({imgindex: start,});
+      tween.to({imgindex: end,},Math.abs((start-end)*50));
+      tween.onUpdate(function (obj) {
+        //  console.log(this.imgindex.toFixed(0));
+          self.n = this.imgindex.toFixed(0); //设定主图
+          // self.imgpath();
+      });
+      tween.onComplete(function () {
+        // console.log('结束');
+        self.animation_list = parameter; //设定动画列表
+        self.animation_type = true
 
-      this.interval = setInterval(() => {
-        if (type) {
-          this.n += 1;
-        } else {
-          this.n -= 1;
-        }
-        this.n < 64 ? this.n : (this.n = 0);
-        this.n > 0 ? (this.n = 64) : this.n;
-
-        // this.imgpath();
-      }, 86);
-
-      // this.stoprotating();
+        // console.log(self.animation_list,parameter)
+      });
+      tween.easing(TWEEN.Easing.Cubic.InOut);
+      tween.start();
     },
     removeanimation() {
       //清空动画
@@ -192,10 +213,11 @@ export default {
     setanimation(parameter, imgIndex) {
       this.removeanimation(); // 清空动画
       this.stoprotating(); // 停止旋转
-      this.n = imgIndex; //设定主图
-      this.imgpath();
+      // this.n = imgIndex; //设定主图
+      // this.imgpath();
       // console.log(parameter)
-      this.animation_list = parameter; //设定动画列表
+      // this.animation_list = parameter; //设定动画列表
+      this.cutscene(this.n,imgIndex,parameter)
     },
 
     // 模型旋转
@@ -209,10 +231,10 @@ export default {
       this.removeanimation();
       if (!this.rotatingtype) {
         this.interval = setInterval(() => {
-          this.n -= 1;
+          this.n --;
           this.n > 0 ? this.n : (this.n = 64);
           // this.n < 64 ? this.n : (this.n = 0);
-          this.imgpath();
+          // this.imgpath();
         }, 86);
         this.rotatingtype = true;
       }
@@ -231,6 +253,10 @@ export default {
         const element = this.imglist[index];
         let img = new Image();
         img.src = element;
+        img.onload = () => {
+          this.loading++;
+          this.loadingindex = (this.loading / 64) * 100;
+        };
       }
     },
     LoadingImageList() {
@@ -240,7 +266,7 @@ export default {
       let model = document.getElementsByClassName("img3dmodels")[0];
       // console.log(model);
       this.imgs = model.querySelectorAll("img"); //获取模型节点下的所有图片
-      // console.log(this.imgs);
+      console.log(this.imgs);
       Array.from(this.imgs).forEach((item) => {
         let img = new Image();
         img.onload = () => {
@@ -249,7 +275,7 @@ export default {
         };
         img.src = item.getAttribute("src");
       });
-      console.log(this.floorplanlist);
+      // console.log(this.floorplanlist);
     },
     // 生成图片文件列表
     getlist() {
@@ -257,10 +283,7 @@ export default {
       let m_ist = [];
       for (let index = 0; index < filenumber; index++) {
         //   const element = array[index];091-Neu atNovena_00000
-        let url = require(`@/assets/model/091-Neu atNovena_${this.formatZero(
-          index,
-          5
-        )}.png`);
+        let url = require(`@/assets/model/091-Neu atNovena_${this.formatZero(index,5)}.png`);
         // console.log(url);
         this.imglist.push(url);
       }
@@ -269,35 +292,34 @@ export default {
       // this.loadimg();
     },
 
-    imgpath() {
-      // 设定图片路径
-      this.imgeurl = this.imglist[this.n];
-    },
+    // imgpath() {
+    //   // 设定图片路径
+    //   this.imgeurl = this.imglist[this.n];
+    // },
 
     rotating(left, width_w) {
-      // console.log("asdasd", left, this.positionY_1);
       this.removeanimation();
       //旋转函数
       // left当前传入的位置
       // width_w 最大宽度
-      console.log(left, width_w);
+      console.log(this.n );
 
       if (left && width_w) {
         // console.log(left, this.positionY_1, width_w, mom);
         if (left > this.positionY_1) {
           // console.log("==========>>右转", left, this.positionY_1);
-          this.n -= 1;
+          this.n --
           this.n > 0 ? this.n : (this.n = 64);
-          console.log("减", left, this.positionY_1);
-          this.imgpath();
+          // console.log("减", left, this.positionY_1);
+          // this.imgpath();
           // console.log(this.img_url);
           this.positionY_1 = left;
         } else if (left < this.positionY_1) {
           // console.log("====>>左转", left, this.positionY_1);
-          this.n += 1;
+          this.n ++
           this.n < 64 ? this.n : (this.n = 0);
-          console.log("加", left, this.positionY_1);
-          this.imgpath();
+          // console.log("加", left, this.positionY_1);
+          // this.imgpath();
           // console.log(this.img_url);
           this.positionY_1 = left;
         }
@@ -323,7 +345,7 @@ export default {
           let top = e.clientY - op.offsetTop;
           //鼠标按下并移动的事件
           //用鼠标的位置减去鼠标相对元素的位置，得到元素的位置
-          console.log(width_w);
+          // console.log(width_w);
 
           this.rotating(left, width_w);
         }
@@ -419,7 +441,6 @@ export default {
     },
     goPage(pageName, item) {
       console.log(pageName, item);
-
       this.$router
         .push({
           path: pageName,
@@ -428,6 +449,10 @@ export default {
           },
         })
         .catch((err) => {});
+    },
+    animate() {
+      window.requestAnimationFrame(() => this.animate());
+      TWEEN.update();
     },
   },
 
@@ -457,8 +482,8 @@ export default {
 
   mounted() {
     this.winsize()
-    this.n = 0;
     this.getlist();
+    this.animate()
     // this.cutscene(62, 10);
   },
 };
@@ -531,7 +556,7 @@ export default {
   position: fixed;
   bottom: 30px;
   display: flex;
-  left: 30px;
+  right: 30px;
   font-size: 12px;
   z-index: 200;
 }
@@ -612,7 +637,15 @@ export default {
   background-color: white !important;
 }
 
-
+.absolute-bottom-text{
+      color: black;
+    position: absolute;
+    left: 10px;
+    bottom: 20px;
+    font-size: 0.5vw;
+    text-align: start;
+    z-index: 200;
+}
 @media screen and (max-width: 800px) {
   .img3dmodels {
     position: absolute;
